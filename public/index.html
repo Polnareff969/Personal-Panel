@@ -52,6 +52,10 @@
         /* Tab functionality */
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .tab-btn {
+            color: #6b7280;
+            border-bottom: 2px solid transparent;
+        }
         .tab-btn.active {
             color: #22c55e;
             border-bottom: 2px solid #22c55e;
@@ -60,10 +64,10 @@
 </head>
 <body class="p-4 md:p-8 flex items-center justify-center">
     <div class="w-full max-w-4xl">
-        
+
         <div class="card rounded-xl p-8 mb-6 text-center">
             <h1 class="doom-font text-4xl text-white mb-2 tracking-[0.2em]">ULTIMATO</h1>
-            <p class="text-gray-500 text-xs uppercase tracking-widest font-medium">Internal System Dashboard // v2.0</p>
+            <p class="text-gray-500 text-xs uppercase tracking-widest font-medium">Internal System Dashboard // v2.1</p>
         </div>
 
         <div class="flex gap-4 mb-6 justify-center">
@@ -95,7 +99,7 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-gray-500 text-[10px] uppercase mb-2 ml-1">Key Prefix</label>
-                        <input type="text" id="prefix" placeholder="e.g., PREMIUM" class="input-field w-full p-3 rounded-lg text-sm">
+                        <input type="text" id="prefix" placeholder="e.g., PREMIUM" class="input-field w-full p-3 rounded-lg text-sm uppercase">
                     </div>
                     <button onclick="generateKey()" class="btn-glow w-full p-3 rounded-lg text-sm font-bold doom-font tracking-widest">
                         GENERATE
@@ -115,7 +119,7 @@
                     <span class="text-[10px] text-green-500 animate-pulse">● LIVE_FEED</span>
                 </div>
                 <div class="log-container rounded-lg h-80 overflow-y-auto p-4 text-[11px] leading-relaxed" id="log-feed">
-                    <div class="text-gray-600 italic">No activity recorded...</div>
+                    <div class="text-gray-600 italic">Connecting to telemetry stream...</div>
                 </div>
             </div>
         </div>
@@ -126,7 +130,10 @@
     </div>
 
     <script>
-        const SECRET = "f1a3b8d6e9c2a5f8b0d3e6a9c1f4b7d0e3a6f9c2b5e8a1d4f7"; // THE DANRAYSHAINA HASH
+        // REPLACE WITH YOUR ACTUAL RENDER URL
+        const BASE_URL = "https://garou-panel.onrender.com";
+        // FULL HASH FOR DANRAYSHAINA
+        const SECRET = "f1a3b8d6e9c2a5f8b0d3e6a9c1f4b7d0e3a6f9c2b5e8a1d4f7b0c3e6a9d2f5b8";
 
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -137,46 +144,58 @@
 
         async function refreshData() {
             try {
-                const res = await fetch('/api/stats');
+                const res = await fetch(`${BASE_URL}/api/stats`);
                 const data = await res.json();
-                
+
                 document.getElementById('total-users').innerText = data.userCount || 0;
                 document.getElementById('unused-keys').innerText = data.keyCount || 0;
-                
+
                 const feed = document.getElementById('log-feed');
                 if (data.recentLogs && data.recentLogs.length > 0) {
                     feed.innerHTML = data.recentLogs.map(log => `
                         <div class="mb-2 border-b border-white/5 pb-2">
                             <span class="text-green-800">[${new Date(log.created_at).toLocaleTimeString()}]</span>
-                            <span class="text-gray-400 ml-2">${log.username}</span>
+                            <span class="text-gray-400 ml-2 font-bold">${log.username || 'SYSTEM'}</span>
                             <span class="text-white ml-2">→ ${log.event}</span>
                         </div>
                     `).join('');
+                } else {
+                    feed.innerHTML = `<div class="text-gray-600 italic">No activity recorded...</div>`;
                 }
-            } catch (e) { console.log("Fetch Error"); }
+            } catch (e) { 
+                console.error("Fetch Error:", e); 
+            }
         }
 
         async function generateKey() {
-            const prefix = document.getElementById('prefix').value || "ULT";
+            const prefixVal = document.getElementById('prefix').value.trim() || "ULT";
             const rand = Math.random().toString(36).substring(2, 12).toUpperCase();
-            const finalKey = `${prefix}-${rand}`;
-            
+            const finalKey = `${prefixVal.toUpperCase()}-${rand}`;
+
             try {
-                const res = await fetch('/api/admin/generate-key', {
+                const res = await fetch(`${BASE_URL}/api/admin/generate-key`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ auth: SECRET, key_id: finalKey })
                 });
 
-                if (res.ok) {
+                const result = await res.json();
+
+                if (result.success) {
                     document.getElementById('new-key-display').classList.remove('hidden');
                     document.getElementById('key-result').innerText = finalKey;
                     refreshData();
+                } else {
+                    alert("Server rejected request: " + (result.msg || "Unauthorized"));
                 }
-            } catch (e) { alert("API Error"); }
+            } catch (e) { 
+                alert("Connection Error: Make sure your Render server is awake."); 
+            }
         }
 
-        setInterval(refreshData, 10000);
+        // Auto-refresh every 15 seconds
+        setInterval(refreshData, 15000);
+        // Initial load
         refreshData();
     </script>
 </body>
