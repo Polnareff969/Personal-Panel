@@ -1,18 +1,20 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
-const path = require('path');
+const cors = require('cors'); 
 
 dotenv.config();
 
 const app = express();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+// Middleware
+app.use(cors()); 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
 
-// --- ULTIMATO SCRIPT API ---
+// --- ULTIMATO SCRIPT API (For Termux) ---
 app.post('/api', async (req, res) => {
     const { api_key, action, username, password, hwid, key } = req.body;
 
@@ -20,6 +22,7 @@ app.post('/api', async (req, res) => {
         return res.send("INVALID_API_KEY");
     }
 
+    // LOGIN ACTION
     if (action === 'login') {
         const { data: user, error } = await supabase
             .from('users')
@@ -35,16 +38,17 @@ app.post('/api', async (req, res) => {
             await supabase.from('users').update({ hwid }).eq('username', username);
         }
 
-        await supabase.from('logs').insert([{ username, hwid, event: 'LOGIN_SUCCESS' }]);
+        await supabase.from('logs').insert([{ username, event: 'LOGIN_SUCCESS' }]);
         return res.send("LOGIN_SUCCESS|FULL");
     }
 
+    // REDEEM KEY ACTION
     if (action === 'redeem_key') {
         const { data: validKey } = await supabase
             .from('keys')
             .select('*')
-            .eq('id', key)
-            .eq('status', 'unused')
+            .eq('key_id', key)   // Matches your new column
+            .eq('status', false) // status false = unused checkbox
             .single();
 
         if (!validKey) return res.send("INVALID_KEY");
@@ -55,26 +59,39 @@ app.post('/api', async (req, res) => {
 
         if (userError) return res.send("USER_EXISTS");
 
-        await supabase.from('keys').update({ status: 'used' }).eq('id', key);
-        await supabase.from('logs').insert([{ username, hwid, event: 'KEY_REDEEMED' }]);
+        // Mark as used (check the box)
+        await supabase.from('keys').update({ status: true }).eq('key_id', key);
+        await supabase.from('logs').insert([{ username, event: 'KEY_REDEEMED' }]);
 
         return res.send("REDEEM_SUCCESS");
     }
 
     if (action === 'log_activity') {
-        await supabase.from('logs').insert([{ username, hwid, event: 'ACTIVITY_PING' }]);
+        await supabase.from('logs').insert([{ username, event: 'ACTIVITY_PING' }]);
         return res.sendStatus(200);
     }
 });
 
-// --- DASHBOARD API ---
+// --- DASHBOARD API (For your index.html) ---
 app.get('/api/stats', async (req, res) => {
     try {
         const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
-        const { count: keyCount } = await supabase.from('keys').select('*', { count: 'exact', head: true }).eq('status', 'unused');
-        const { data: recentLogs } = await supabase.from('logs').select('*').order('created_at', { ascending: false }).limit(15);
         
-        res.json({ userCount, keyCount, recentLogs });
+        // Count where status checkbox is NOT checked
+        const { count: keyCount } = await supabase.from('keys')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', false);
+
+        const { data: recentLogs } = await supabase.from('logs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(15);
+
+        res.json({ 
+            userCount: userCount || 0, 
+            keyCount: keyCount || 0, 
+            recentLogs: recentLogs || [] 
+        });
     } catch (err) {
         res.status(500).json({ error: "DB_OFFLINE" });
     }
@@ -82,11 +99,21 @@ app.get('/api/stats', async (req, res) => {
 
 app.post('/api/admin/generate-key', async (req, res) => {
     const { auth, key_id } = req.body;
-    if (auth !== process.env.MY_PANEL_SECRET) return res.status(403).send("UNAUTHORIZED");
-    
-    const { error } = await supabase.from('keys').insert([{ id: key_id, status: 'unused' }]);
-    if (error) return res.status(400).json({ success: false });
-    
+    if (auth !== process.env.MY_PANEL_SECRET) return res.status(403).json({ success: false });
+
+    // Inserting into key_id column, status checkbox remains false (unchecked)
+    const { error } = await supabase.from('keys').insert([
+        { 
+            key_id: key_id, 
+            status: false 
+        }
+    ]);
+
+    if (error) {
+        console.error("DB Error:", error.message);
+        return res.status(400).json({ success: false, msg: error.message });
+    }
+
     res.json({ success: true });
 });
 
