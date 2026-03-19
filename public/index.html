@@ -3,352 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ULTIMATO :: SYSTEM_CONTROL</title>
+    <title>ULTIMATO // SYSTEM CONTROL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        /* Define variables for easy tweaking */
-        :root {
-            --bg-body: #050505; /* Blacker background */
-            --bg-card: #0c0c0c;
-            --border: #141414; /* Subtler lines */
-            --accent: #00ff41; /* Matrix Green */
-            --text-main: #e0e0e0;
-            --text-dim: #666;
-            --danger: #ff3e3e;
-            --font-stack: 'SF Mono', 'Courier New', monospace;
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #09090b; /* Deep gloomy black-blue */
+            color: #d1d5db;
+            min-height: 100vh;
         }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
-        body { 
-            background-color: var(--bg-body); 
-            color: var(--text-main); 
-            font-family: var(--font-stack); 
-            font-size: 14px;
-            overflow-x: hidden;
-            display: flex;
+        .doom-font {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
         }
-
-        /* --- Sidebar Menu --- */
-        .sidebar {
-            width: 280px;
-            height: 100vh;
-            background: #000;
-            border-right: 1px solid var(--border);
-            position: fixed;
-            left: -280px; /* Hidden initially */
-            top: 0;
-            transition: left 0.3s cubic-bezier(0.77,0.2,0.05,1.0);
-            z-index: 100;
-            padding: 40px 20px;
+        .card {
+            background: rgba(15, 15, 20, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
         }
-
-        .sidebar.open { left: 0; }
-
-        .menu-header {
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-dim);
-            font-size: 11px;
-            margin-bottom: 30px;
-            text-align: center;
+        .input-field {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e5e7eb;
+            transition: all 0.2s ease;
         }
-
-        .menu-item {
-            color: var(--text-main);
-            padding: 15px 10px;
-            text-decoration: none;
-            display: block;
-            border-bottom: 1px solid var(--border);
-            transition: color 0.2s;
-            cursor: pointer;
+        .input-field:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.1);
         }
-        
-        .menu-item:hover { color: var(--accent); }
-
-        /* Overlay when menu is open */
-        .overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.8);
-            display: none;
-            z-index: 90;
+        .btn-glow {
+            background: #052e16;
+            color: #4ade80;
+            border: 1px solid #14532d;
+            transition: all 0.3s;
         }
-        .overlay.open { display: block; }
-
-        /* --- Main Content --- */
-        .main-wrapper {
-            flex: 1;
-            padding: 20px;
-            transition: margin-left 0.3s;
+        .btn-glow:hover {
+            background: #14532d;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
         }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border);
+        .log-container {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
-
-        /* Glitch Title - subtle */
-        .glitch-title {
-            font-size: 1.2rem;
-            letter-spacing: 3px;
-            color: var(--accent);
-            text-transform: uppercase;
+        /* Tab functionality */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-btn.active {
+            color: #22c55e;
+            border-bottom: 2px solid #22c55e;
         }
-
-        /* Modern Hamburger Icon */
-        .menu-btn {
-            background: none; border: none; cursor: pointer;
-            width: 25px; height: 16px;
-            display: flex; flex-direction: column; justify-content: space-between;
-        }
-        .menu-btn span {
-            width: 100%; height: 2px;
-            background: var(--text-main);
-            transition: background 0.2s, transform 0.3s;
-        }
-        .menu-btn:hover span:nth-child(2) { background: var(--accent); }
-
-        /* System Status pill */
-        .status-pill {
-            background: #111;
-            border: 1px solid var(--border);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .status-pill .indicator {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: var(--accent);
-        }
-
-        /* Stats Grid - Cleaner Cards */
-        .stats-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-            margin-bottom: 20px;
-        }
-        .stat-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 20px;
-            text-align: center;
-        }
-        .stat-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
-        .stat-val { display: block; font-size: 2.2rem; color: #fff; font-weight: bold; margin-top: 5px; }
-
-        /* --- Views --- */
-        .view { display: none; }
-        .view.active { display: block; }
-
-        /* Key Generator View Modernization */
-        .input-group { position: relative; margin-bottom: 20px; }
-        input {
-            background: #000;
-            border: 1px solid var(--border);
-            color: var(--accent);
-            padding: 15px;
-            width: 100%;
-            font-family: inherit;
-        }
-        input:focus { border-color: var(--accent); }
-
-        button {
-            background: var(--accent);
-            color: #000;
-            border: none;
-            padding: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: opacity 0.2s;
-        }
-        button:hover { opacity: 0.8; }
-
-        #key-display-polished {
-            background: var(--bg-card);
-            padding: 20px;
-            margin-top: 20px;
-            border: 1px solid var(--border);
-            text-align: center;
-            font-size: 1.1rem;
-            color: var(--accent);
-            display: none;
-        }
-
-        /* --- Modernized Logs View --- */
-        .log-list {
-            list-style: none;
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            background: #000;
-            font-size: 12px;
-        }
-        .log-item {
-            padding: 12px 15px;
-            border-bottom: 1px solid #111;
-            display: flex; gap: 15px;
-        }
-        .log-item:last-child { border-bottom: none; }
-        .log-ts { color: var(--text-dim); }
-        .log-user { color: var(--accent); font-weight: bold; }
-        .log-ev { color: var(--text-main); }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); }
     </style>
 </head>
-<body>
-
-<nav class="sidebar" id="sidebar">
-    <div class="menu-header">CMD // Navigation</div>
-    <div class="menu-item active" onclick="switchView('overview')">System_Overview</div>
-    <div class="menu-item" onclick="switchView('key-gen')">License_Factory</div>
-    <div class="menu-item" onclick="switchView('traffic')">Traffic_Monitor</div>
-    <div style="margin-top: auto; padding: 20px; color: var(--text-dim); text-align: center; font-size: 10px;">ULTIMATO_V1.0.1</div>
-</nav>
-
-<div class="overlay" id="overlay" onclick="toggleMenu()"></div>
-
-<div class="main-wrapper">
-    <header>
-        <button class="menu-btn" onclick="toggleMenu()">
-            <span></span><span></span><span></span>
-        </button>
+<body class="p-4 md:p-8 flex items-center justify-center">
+    <div class="w-full max-w-4xl">
         
-        <div class="glitch-title">System_Control</div>
+        <div class="card rounded-xl p-8 mb-6 text-center">
+            <h1 class="doom-font text-4xl text-white mb-2 tracking-[0.2em]">ULTIMATO</h1>
+            <p class="text-gray-500 text-xs uppercase tracking-widest font-medium">Internal System Dashboard // v2.0</p>
+        </div>
 
-        <div class="status-pill">
-            <div class="indicator"></div>
-            SYSLOG :: ENCRYPTED
+        <div class="flex gap-4 mb-6 justify-center">
+            <button onclick="showTab('overview')" id="btn-overview" class="tab-btn active px-4 py-2 text-sm font-medium transition-all">OVERVIEW</button>
+            <button onclick="showTab('keygen')" id="btn-keygen" class="tab-btn px-4 py-2 text-sm font-medium transition-all">LICENSE GEN</button>
+            <button onclick="showTab('logs')" id="btn-logs" class="tab-btn px-4 py-2 text-sm font-medium transition-all">SYSTEM LOGS</button>
         </div>
-    </header>
 
-    <div class="stats-grid">
-        <div class="stat-card">
-            <span class="stat-val" id="total-users">0</span>
-            <span class="stat-label">Authorized</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-val" id="unused-keys">0</span>
-            <span class="stat-label">Avail_Keys</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-val" style="color: var(--accent);">LIVE</span>
-            <span class="stat-label">Environment</span>
-        </div>
-    </div>
-
-    <div id="view-key-gen" class="view">
-        <div class="card" style="max-width: 500px; margin: 0 auto; background: var(--bg-card); padding: 30px; border: 1px solid var(--border);">
-            <div class="input-group">
-                <input type="text" id="prefix" placeholder="LICENSE_PREFIX (e.g. LIFETIME)">
+        <div id="overview" class="tab-content active">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="card rounded-xl p-6 text-center">
+                    <div class="text-gray-500 text-[10px] uppercase tracking-tighter mb-1">Active Users</div>
+                    <div class="text-3xl font-bold text-white" id="total-users">0</div>
+                </div>
+                <div class="card rounded-xl p-6 text-center">
+                    <div class="text-gray-500 text-[10px] uppercase tracking-tighter mb-1">Stock Licenses</div>
+                    <div class="text-3xl font-bold text-white" id="unused-keys">0</div>
+                </div>
+                <div class="card rounded-xl p-6 text-center">
+                    <div class="text-gray-500 text-[10px] uppercase tracking-tighter mb-1">System Status</div>
+                    <div class="text-xl font-bold text-green-500 doom-font">ONLINE</div>
+                </div>
             </div>
-            <button onclick="generateKey()">Create_License_Key</button>
-            <div id="key-display-polished"></div>
+        </div>
+
+        <div id="keygen" class="tab-content">
+            <div class="card rounded-xl p-8 max-w-md mx-auto">
+                <h2 class="doom-font text-sm text-green-500 mb-6 uppercase tracking-widest text-center">Generate License</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-500 text-[10px] uppercase mb-2 ml-1">Key Prefix</label>
+                        <input type="text" id="prefix" placeholder="e.g., PREMIUM" class="input-field w-full p-3 rounded-lg text-sm">
+                    </div>
+                    <button onclick="generateKey()" class="btn-glow w-full p-3 rounded-lg text-sm font-bold doom-font tracking-widest">
+                        GENERATE
+                    </button>
+                    <div id="new-key-display" class="hidden mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
+                        <span class="text-xs text-green-500 block mb-1 font-bold">NEW LICENSE KEY:</span>
+                        <code class="text-white text-lg font-bold select-all" id="key-result"></code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="logs" class="tab-content">
+            <div class="card rounded-xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="doom-font text-xs text-gray-400 uppercase tracking-widest font-bold">Telemetry Feed</h2>
+                    <span class="text-[10px] text-green-500 animate-pulse">● LIVE_FEED</span>
+                </div>
+                <div class="log-container rounded-lg h-80 overflow-y-auto p-4 text-[11px] leading-relaxed" id="log-feed">
+                    <div class="text-gray-600 italic">No activity recorded...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-12 text-center text-[10px] text-gray-600 uppercase tracking-[0.3em]">
+            Connection Secure // AES-256 Encrypted
         </div>
     </div>
 
-    <div id="view-traffic" class="view">
-        <ul class="log-list" id="log-feed">
-            <li class="log-item">
-                <span class="log-ts">[..:..:..]</span>
-                <span class="log-ev">Awaiting telemetry handshake...</span>
-            </li>
-        </ul>
-    </div>
+    <script>
+        const SECRET = "f1a3b8d6e9c2a5f8b0d3e6a9c1f4b7d0e3a6f9c2b5e8a1d4f7"; // THE DANRAYSHAINA HASH
 
-    <div id="view-overview" class="view active">
-        <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 30px; text-align: center;">
-            <p style="color: var(--text-dim);">SYSTEM STABLE. Monitor authorized access or generate licenses via the CMD Navigator.</p>
-        </div>
-    </div>
-
-</div>
-
-<script>
-    const SECRET = "f1a3b8d6e9c2a5f8b0d3e6a9c1f4b7d0e3a6f9c2b5e8a1d4f7b0c3e6a9d2f5b8"; // CHANGE THIS TO MATCH YOUR .ENV HASH
-
-    // --- Modern Menu Logic ---
-    function toggleMenu() {
-        document.getElementById('sidebar').classList.toggle('open');
-        document.getElementById('overlay').classList.toggle('open');
-    }
-
-    // Modern "Single Page App" View Switcher
-    function switchView(viewName) {
-        toggleMenu(); // Close menu after selection
-
-        // Hide all views
-        document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-        
-        // Remove active class from menu items
-        document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
-
-        // Show selected view
-        document.getElementById('view-' + viewName).classList.add('active');
-
-        // Highlight selected menu item
-        event.currentTarget.classList.add('active');
-    }
-
-    // --- Updated Functionality Logic (Cleaned Up) ---
-    async function refreshData() {
-        try {
-            const res = await fetch('/api/stats');
-            if (!res.ok) throw new Error();
-            const data = await res.json();
-            
-            document.getElementById('total-users').innerText = data.userCount || 0;
-            document.getElementById('unused-keys').innerText = data.keyCount || 0;
-            
-            const feed = document.getElementById('log-feed');
-            if (data.recentLogs && data.recentLogs.length > 0) {
-                feed.innerHTML = data.recentLogs.map(log => `
-                    <li class="log-item">
-                        <span class="log-ts">[${new Date(log.created_at).toLocaleTimeString()}]</span>
-                        <span class="log-user">${log.username}</span> ::
-                        <span class="log-ev">${log.event}</span>
-                    </li>
-                `).join('');
-            }
-        } catch (e) {
-            console.error("Link_Error");
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('btn-' + tabId).classList.add('active');
         }
-    }
 
-    async function generateKey() {
-        const prefix = document.getElementById('prefix').value || "ULT";
-        const rand = Math.random().toString(36).substring(2, 12).toUpperCase();
-        const finalKey = `${prefix}-${rand}`;
-        
-        const keyDisplay = document.getElementById('key-display-polished');
+        async function refreshData() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                
+                document.getElementById('total-users').innerText = data.userCount || 0;
+                document.getElementById('unused-keys').innerText = data.keyCount || 0;
+                
+                const feed = document.getElementById('log-feed');
+                if (data.recentLogs && data.recentLogs.length > 0) {
+                    feed.innerHTML = data.recentLogs.map(log => `
+                        <div class="mb-2 border-b border-white/5 pb-2">
+                            <span class="text-green-800">[${new Date(log.created_at).toLocaleTimeString()}]</span>
+                            <span class="text-gray-400 ml-2">${log.username}</span>
+                            <span class="text-white ml-2">→ ${log.event}</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { console.log("Fetch Error"); }
+        }
 
-        try {
-            const res = await fetch('/api/admin/generate-key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ auth: SECRET, key_id: finalKey })
-            });
+        async function generateKey() {
+            const prefix = document.getElementById('prefix').value || "ULT";
+            const rand = Math.random().toString(36).substring(2, 12).toUpperCase();
+            const finalKey = `${prefix}-${rand}`;
+            
+            try {
+                const res = await fetch('/api/admin/generate-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ auth: SECRET, key_id: finalKey })
+                });
 
-            if (res.ok) {
-                keyDisplay.innerText = finalKey;
-                keyDisplay.style.display = 'block'; // Show modern display
-                refreshData();
-            } else { alert("Unauthorized_Handshake"); }
-        } catch (e) { alert("API_Link_Failure"); }
-    }
+                if (res.ok) {
+                    document.getElementById('new-key-display').classList.remove('hidden');
+                    document.getElementById('key-result').innerText = finalKey;
+                    refreshData();
+                }
+            } catch (e) { alert("API Error"); }
+        }
 
-    // Auto-telemetry stream
-    setInterval(refreshData, 10000); // Less frequent update for minimalism
-    refreshData();
-</script>
-
+        setInterval(refreshData, 10000);
+        refreshData();
+    </script>
 </body>
 </html>
