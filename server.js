@@ -10,8 +10,8 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 // Middleware
 app.use(cors()); 
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 // --- ULTIMATO SCRIPT API (For Termux) ---
@@ -24,21 +24,20 @@ app.post('/api', async (req, res) => {
 
     // LOGIN ACTION
     if (action === 'login') {
-        const { data: user, error } = await supabase
+        const { data: user } = await supabase
             .from('users')
             .select('*')
             .eq('username', username)
             .eq('password', password)
             .single();
 
-        if (error || !user) return res.send("INVALID_CREDENTIALS");
+        if (!user) return res.send("INVALID_CREDENTIALS");
         if (user.hwid && user.hwid !== hwid) return res.send("HWID_MISMATCH");
 
         if (!user.hwid) {
             await supabase.from('users').update({ hwid }).eq('username', username);
         }
 
-        await supabase.from('logs').insert([{ username, event: 'LOGIN_SUCCESS' }]);
         return res.send("LOGIN_SUCCESS|FULL");
     }
 
@@ -47,45 +46,33 @@ app.post('/api', async (req, res) => {
         const { data: validKey } = await supabase
             .from('keys')
             .select('*')
-            .eq('key_id', key)   // Matches your new column
-            .eq('status', false) // status false = unused checkbox
+            .eq('key_id', key)
+            .eq('status', false) // status false = unused
             .single();
 
         if (!validKey) return res.send("INVALID_KEY");
 
+        // Create the user
         const { error: userError } = await supabase
             .from('users')
             .insert([{ username, password, hwid, role: 'FULL' }]);
 
         if (userError) return res.send("USER_EXISTS");
 
-        // Mark as used (check the box)
+        // Mark key as used (checked)
         await supabase.from('keys').update({ status: true }).eq('key_id', key);
-        await supabase.from('logs').insert([{ username, event: 'KEY_REDEEMED' }]);
-
         return res.send("REDEEM_SUCCESS");
-    }
-
-    if (action === 'log_activity') {
-        await supabase.from('logs').insert([{ username, event: 'ACTIVITY_PING' }]);
-        return res.sendStatus(200);
     }
 });
 
-// --- DASHBOARD API (For your index.html) ---
+// --- DASHBOARD API (For index.html) ---
 app.get('/api/stats', async (req, res) => {
     try {
         const { count: userCount } = await supabase.from('users').select('*', { count: 'exact', head: true });
+        const { count: keyCount } = await supabase.from('keys').select('*', { count: 'exact', head: true }).eq('status', false);
         
-        // Count where status checkbox is NOT checked
-        const { count: keyCount } = await supabase.from('keys')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', false);
-
-        const { data: recentLogs } = await supabase.from('logs')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(15);
+        // Fetch logs (Ensuring 'logs' table exists in your Supabase)
+        const { data: recentLogs } = await supabase.from('logs').select('*').order('created_at', { ascending: false }).limit(10);
 
         res.json({ 
             userCount: userCount || 0, 
@@ -97,20 +84,28 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
+// GENERATE KEY (Manually providing the Primary Key 'id')
 app.post('/api/admin/generate-key', async (req, res) => {
     const { auth, key_id } = req.body;
-    if (auth !== process.env.MY_PANEL_SECRET) return res.status(403).json({ success: false });
+    
+    // Check against your Render environment variable
+    if (auth !== process.env.MY_PANEL_SECRET) {
+        return res.status(403).json({ success: false, message: "UNAUTHORIZED" });
+    }
 
-    // Inserting into key_id column, status checkbox remains false (unchecked)
+    // Generate a unique numeric ID to satisfy Primary Key/Not-Null
+    const manualId = Math.floor(Math.random() * 90000000) + 10000000;
+
     const { error } = await supabase.from('keys').insert([
         { 
-            key_id: key_id, 
-            status: false 
+            id: manualId,      // Satisfies Primary Key
+            key_id: key_id,    // The actual License Key
+            status: false      // Unused by default
         }
     ]);
 
     if (error) {
-        console.error("DB Error:", error.message);
+        console.error("Supabase Insert Error:", error.message);
         return res.status(400).json({ success: false, msg: error.message });
     }
 
@@ -120,4 +115,4 @@ app.post('/api/admin/generate-key', async (req, res) => {
 app.get('/health', (req, res) => res.send("ALIVE"));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`[SYSTEM] Backend listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`[SYSTEM] Backend Live on Port ${PORT}`));
